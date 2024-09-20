@@ -49,7 +49,6 @@ export const purchaseProduct = async (event) => {
                             <p>Hello,</p>
                             <p>We are pleased to confirm your purchase of <b>${Quantity} x ${productName}</b>.</p>
                             <p>Total: <b>$${price}</b></p>
-                            <h2>Shipping Details:</h2>
                             <p>${shippingAddress}</p>
                             <p>Your order will be processed and shipped soon. Thank you for choosing us!</p>
                             <br/>
