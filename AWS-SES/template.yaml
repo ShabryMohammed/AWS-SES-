@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  user-report-CRUD with SES email service
+
+Globals:
+  Function:
+    Timeout: 10
+    LoggingConfig:
+      LogFormat: JSON
+
+Resources:
+  purchaseProduct:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/
+      Handler: purchase_product.purchaseProduct
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      Events:
+        PurchaseEvent:
+          Type: Api
+          Properties:
+            Path: /purchaseProduct
+            Method: POST
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductTable
+        - Statement:
+            Effect: Allow
+            Action:
+              - ses:SendEmail
+              - ses:SendRawEmail
+            Resource: "*"
+
+  ProductTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Products
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 2
+        WriteCapacityUnits: 2
+
+Outputs:
+  WebEndpoint:
+    Description: Purchase product and send confirmation email
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
