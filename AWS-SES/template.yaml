@@ -5,11 +5,23 @@ Description: >
 
 Globals:
   Function:
-    Timeout: 10
+    Timeout: 30
     LoggingConfig:
       LogFormat: JSON
 
 Resources:
+  # Create the SQS Queue
+  MyQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: MyQueue
+
+  # Create the SNS Topic
+  MyTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: MyTopic
+
   purchaseProduct:
     Type: AWS::Serverless::Function
     Properties:
@@ -34,6 +46,52 @@ Resources:
               - ses:SendRawEmail
             Resource: "*"
 
+  purchaseProductSnsSqs:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/
+      Handler: purchase_productSnsSqs.purchaseProduct
+      Runtime: nodejs18.x
+      Environment:
+        Variables:
+          SQS_QUEUE_URL: !Ref MyQueue
+      Events:
+        PurchaseEvent:
+          Type: Api
+          Properties:
+            Path: /purchaseProductsns
+            Method: POST
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ProductTable
+        - Statement:
+            Effect: Allow
+            Action:
+              - sqs:SendMessage
+            Resource: !GetAtt MyQueue.Arn
+
+  # Lambda function to process SQS messages and send emails via SNS
+  SendEmailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/
+      Handler: send_email.sendEmail
+      Runtime: nodejs18.x
+      Environment:
+        Variables:
+          SNS_TOPIC_ARN: !Ref MyTopic
+      Events:
+        SQSEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt MyQueue.Arn
+      Policies:
+        - Statement:
+            Effect: Allow
+            Action:
+              - sns:Publish
+            Resource: !Ref MyTopic
+
   ProductTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -52,3 +110,11 @@ Outputs:
   WebEndpoint:
     Description: Purchase product and send confirmation email
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  
+  QueueURL:
+    Description: The URL of the SQS Queue
+    Value: !Ref MyQueue  # Updated to reflect the created queue
+
+  SNSTopicArn:
+    Description: The ARN of the SNS Topic
+    Value: !Ref MyTopic  # Updated to reflect the created topic
